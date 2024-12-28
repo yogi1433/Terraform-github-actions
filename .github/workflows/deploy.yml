@@ -53,17 +53,17 @@ jobs:
       # Choose between Apply or Destroy
       - name: "Run Terraform Action"
         run: |
-          if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
+          ACTION="${{ github.event.inputs.action }}"
+          if [[ "$ACTION" == "apply" ]]; then
             echo "Running Terraform Apply..."
             terraform validate
             terraform plan -out=tfplan
-            terraform apply tfplan
-          elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
+            terraform apply -auto-approve tfplan
+          elif [[ "$ACTION" == "destroy" ]]; then
             echo "Running Terraform Destroy..."
-            terraform validate
             terraform destroy -auto-approve
           else
-            echo "Invalid action specified: ${{ github.event.inputs.action }}"
+            echo "Invalid action specified: $ACTION"
             exit 1
           fi
 
