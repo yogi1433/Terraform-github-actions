@@ -1,13 +1,18 @@
-name: Terraform CI/CD
+name: Terraform CI/CD (Apply and Destroy)
 
 on:
   push:
     branches:
       - main
-  pull_request:
-    branches:
-      - main
-  workflow_dispatch: # Enables manual triggering from the Actions tab
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Choose the action to perform (apply/destroy)"
+        required: true
+        default: "apply"
+        options:
+          - apply
+          - destroy
 
 jobs:
   terraform:
@@ -22,6 +27,7 @@ jobs:
       - name: "Checkout GitHub repository"
         uses: actions/checkout@v3
 
+      # Configure AWS credentials
       - name: "Configure AWS credentials"
         uses: aws-actions/configure-aws-credentials@v2
         with:
@@ -29,59 +35,123 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+      # Verify AWS credentials
       - name: "Verify AWS CLI"
-        run: aws sts get-caller-identity
+        run: |
+          aws sts get-caller-identity
 
+      # Set up Terraform
       - name: "Set up Terraform"
         uses: hashicorp/setup-terraform@v1
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      # Initialize Terraform
       - name: "Terraform Init"
         run: terraform init
 
-      - name: "Terraform Validate"
-        run: terraform validate
+      # Choose between Apply or Destroy
+      - name: "Run Terraform Action"
+        run: |
+          if [[ "${{ github.event.inputs.action }}" == "apply" ]]; then
+            echo "Running Terraform Apply..."
+            terraform validate
+            terraform plan -out=tfplan
+            terraform apply tfplan
+          elif [[ "${{ github.event.inputs.action }}" == "destroy" ]]; then
+            echo "Running Terraform Destroy..."
+            terraform validate
+            terraform destroy -auto-approve
+          else
+            echo "Invalid action specified: ${{ github.event.inputs.action }}"
+            exit 1
+          fi
 
-      - name: "Terraform Plan"
-        run: terraform plan -out=tfplan
+# name: Terraform CI/CD
 
-      - name: "Terraform Apply"
-        if: github.ref == 'refs/heads/main'
-        run: terraform apply -auto-approve tfplan
+# on:
+#   push:
+#     branches:
+#       - main
+#   pull_request:
+#     branches:
+#       - main
+#   workflow_dispatch: # Enables manual triggering from the Actions tab
 
-  destroy:
-    name: "Destroy Terraform Resources"
-    runs-on: ubuntu-latest
+# jobs:
+#   terraform:
+#     name: "Terraform and Deploy"
+#     runs-on: ubuntu-latest
 
-    # Only run this job manually via workflow_dispatch
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+#     env:
+#       AWS_REGION: "ap-south-1" # Specify your AWS region
+#       TF_VERSION: "1.9.8" # Specify your desired Terraform version
 
-    env:
-      AWS_REGION: "ap-south-1"
-      TF_VERSION: "1.9.8"
+#     steps:
+#       - name: "Checkout GitHub repository"
+#         uses: actions/checkout@v3
 
-    steps:
-      - name: "Checkout GitHub repository "
-        uses: actions/checkout@v3
+#       - name: "Configure AWS credentials"
+#         uses: aws-actions/configure-aws-credentials@v2
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
 
-      - name: "Configure AWS credentials"
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+#       - name: "Verify AWS CLI"
+#         run: aws sts get-caller-identity
 
-      - name: "Verify AWS CLI"
-        run: aws sts get-caller-identity
+#       - name: "Set up Terraform"
+#         uses: hashicorp/setup-terraform@v1
+#         with:
+#           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: "Set up Terraform"
-        uses: hashicorp/setup-terraform@v1
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
+#       - name: "Terraform Init"
+#         run: terraform init
 
-      - name: "Terraform Init"
-        run: terraform init
+#       - name: "Terraform Validate"
+#         run: terraform validate
 
-      - name: "Destroy Terraform Infrastructure"
-        run: terraform destroy -auto-approve
+#       - name: "Terraform Plan"
+#         run: terraform plan -out=tfplan
+
+#       - name: "Terraform Apply"
+#         if: github.ref == 'refs/heads/main'
+#         run: terraform apply -auto-approve tfplan
+
+#   destroy:
+#     name: "Destroy Terraform Resources"
+#     runs-on: ubuntu-latest
+
+#     # Only run this job manually via workflow_dispatch
+#     if: ${{ github.event_name == 'workflow_dispatch' }}
+
+#     env:
+#       AWS_REGION: "ap-south-1"
+#       TF_VERSION: "1.9.8"
+
+#     steps:
+#       - name: "Checkout GitHub repository "
+#         uses: actions/checkout@v3
+
+#       - name: "Configure AWS credentials"
+#         uses: aws-actions/configure-aws-credentials@v2
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+#           aws-region: ${{ env.AWS_REGION }}
+
+#       - name: "Verify AWS CLI"
+#         run: aws sts get-caller-identity
+
+#       - name: "Set up Terraform"
+#         uses: hashicorp/setup-terraform@v1
+#         with:
+#           terraform_version: ${{ env.TF_VERSION }}
+
+#       - name: "Terraform Init"
+#         run: terraform init
+
+#       - name: "Destroy Terraform Infrastructure"
+#         run: terraform destroy -auto-approve
+
