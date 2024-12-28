@@ -4,3 +4,4 @@
 tp
 terraform.tfstate.*
 terraform.tfstate
+remote-setup
